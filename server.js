@@ -28,11 +28,18 @@ http.listen(port, () => {
 
 io.sockets.on("connection", (socket) => {
   const eventEmitter = new EventEmitter();
-  sessions[socket.id] = null;
 
-  socket.on("start-engine", ({ token }) => {
-    botEngine.start(eventEmitter, socket.id, token).then((client) => {
-      sessions[socket.id] = client;
+  socket.emit("connected", { id: socket.id });
+
+  const closeConnection = (session_id) => {
+    if (sessions[session_id]) {
+      sessions[session_id].close();
+    }
+  };
+
+  socket.on("start-engine", (params) => {
+    botEngine.start(eventEmitter, params).then((client) => {
+      sessions[params.session_id] = client;
     });
   });
 
@@ -52,17 +59,7 @@ io.sockets.on("connection", (socket) => {
     eventEmitter.emit("send-message", data);
   });
 
-  const closeConnection = () => {
-    if (sessions[socket.id]) {
-      sessions[socket.id].close();
-    }
-  };
-
-  socket.on("close-connection", () => {
-    closeConnection();
-  });
-
-  socket.on("disconnect", () => {
-    closeConnection();
+  socket.on("close-connection", ({ session_id }) => {
+    closeConnection(session_id);
   });
 });

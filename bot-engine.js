@@ -1,7 +1,7 @@
 const venom = require("venom-bot");
 
 const bot = {
-  async start(eventEmitter, sessionName, session) {
+  async start(eventEmitter, params) {
     const qrGeneratedHandler = (base64Qrimg, asciiQR, attempts, urlCode) => {
       eventEmitter.emit("qr-generated", {
         base64Qrimg,
@@ -27,11 +27,11 @@ const bot = {
 
     try {
       let client = await venom.create(
-        sessionName,
+        params.session_id,
         qrGeneratedHandler,
         sessionHandler,
         settings,
-        session
+        params.token
       );
 
       client.getSessionTokenBrowser().then((token) => {
