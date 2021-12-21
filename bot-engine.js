@@ -19,7 +19,7 @@ const bot = {
       disableWelcome: true,
       debug: false,
       logQR: false,
-      headless: true,
+      headless: false,
       puppeteerOptions: {},
       autoClose: 60000,
       createPathFileToken: false,
@@ -34,20 +34,16 @@ const bot = {
         params.token
       );
 
+      client.instance_params = params;
+
       client.getSessionTokenBrowser().then((token) => {
         eventEmitter.emit("token-generated", { token });
       });
 
-      eventEmitter.on("send-message", (data) => {
-        const phone_number = `${data.phone_number}@c.us`;
-        client
-          .sendText(phone_number, data.body)
-          .then((result) => {
-            eventEmitter.emit("sent-message", result);
-          })
-          .catch((er) => {
-            eventEmitter.emit("message-failed", er);
-          });
+      client.onStateChange((state) => {
+        if (["CONFLICT"].includes(state)) {
+          eventEmitter.emit("session-conflict");
+        }
       });
 
       return client;
