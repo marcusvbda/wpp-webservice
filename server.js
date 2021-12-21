@@ -2,6 +2,9 @@ const app = require("express")();
 const http = require("http").createServer(app);
 const cors = require("cors");
 app.use(cors());
+const botEngine = require("./bot-engine");
+const EventEmitter = require("events");
+const sessions = {};
 
 const io = require("socket.io")(http, {
   allowEIO3: true,
@@ -12,7 +15,10 @@ const io = require("socket.io")(http, {
 });
 
 app.get("/", (req, res) => {
-  res.send("server is running");
+  res.json({
+    message: "webservice is running ...",
+    sessions: Object.keys(sessions),
+  });
 });
 
 const port = 3000;
@@ -21,9 +27,42 @@ http.listen(port, () => {
 });
 
 io.sockets.on("connection", (socket) => {
-  console.log("user connected", socket.id);
+  const eventEmitter = new EventEmitter();
+  sessions[socket.id] = null;
 
-  socket.on("test-connected-user", (fn) => {
-    fn("Test user conectado " + socket.id);
+  socket.on("start-engine", ({ token }) => {
+    botEngine.start(eventEmitter, socket.id, token).then((client) => {
+      sessions[socket.id] = client;
+    });
+  });
+
+  [
+    "qr-generated",
+    "session-updated",
+    "token-generated",
+    "sent-message",
+    "message-failed",
+  ].map((event) => {
+    eventEmitter.on(event, (data) => {
+      socket.emit(event, data);
+    });
+  });
+
+  socket.on("send-message", (data) => {
+    eventEmitter.emit("send-message", data);
+  });
+
+  const closeConnection = () => {
+    if (sessions[socket.id]) {
+      sessions[socket.id].close();
+    }
+  };
+
+  socket.on("close-connection", () => {
+    closeConnection();
+  });
+
+  socket.on("disconnect", () => {
+    closeConnection();
   });
 });
